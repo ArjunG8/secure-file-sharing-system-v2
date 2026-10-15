@@ -1,0 +1,82 @@
+# One application: database + backend + frontend (+ optional TLS proxy owned by M10).
+#   docker compose up --build                 -> http://localhost:5173 (dev)
+#   docker compose --profile tls up --build   -> https://localhost (after scripts/gen-dev-certs.sh)
+# All secrets come from .env (copy .env.example). Compose refuses to start if they are empty.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-securefiles}
+      POSTGRES_USER: ${POSTGRES_USER:-securefiles}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Published on localhost only, so members can run `alembic revision --autogenerate`
+    # from their machine (DATABASE_URL=...@localhost:POSTGRES_HOST_PORT/...).
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-securefiles}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-securefiles}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env}
+      MASTER_KEY_ENCRYPTION_KEY: ${MASTER_KEY_ENCRYPTION_KEY:?Set MASTER_KEY_ENCRYPTION_KEY in .env}
+      AUDIT_HMAC_KEY: ${AUDIT_HMAC_KEY:?Set AUDIT_HMAC_KEY in .env}
+      STORAGE_DIR: /data/files
+      MODEL_DIR: /data/models
+      # Bind mounts from Windows/macOS hosts do not deliver file events; poll instead.
+      WATCHFILES_FORCE_POLLING: "true"
+    # Development: run migrations, then serve with auto-reload from the mounted source.
+    command: >-
+      sh -c "alembic upgrade head &&
+      uvicorn --factory app.main:create_app --host 0.0.0.0 --port 8000 --reload
+      --proxy-headers --forwarded-allow-ips='*'"
+    volumes:
+      - file_storage:/data/files
+      - model_storage:/data/models
+      - ./backend/app:/app/app:ro
+      - ./backend/alembic:/app/alembic:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_BASE_URL: /api/v1
+      VITE_PROXY_TARGET: http://backend:8000
+    volumes:
+      - ./frontend/src:/app/src
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:5173:5173"
+
+  # M10: TLS-terminating reverse proxy. Requires certs from scripts/gen-dev-certs.sh.
+  proxy:
+    image: nginx:1.27-alpine
+    profiles: ["tls"]
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+
+volumes:
+  pg_data:
+  file_storage:
+  model_storage:

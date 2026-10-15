@@ -1,0 +1,57 @@
+# Replace each @TODO-mN with the member's GitHub username (see docs/module-ownership.md).
+# Lines lower in the file take precedence.
+
+*                                         @ArjunG8
+
+# M1 Authentication & Argon2id
+/backend/app/modules/auth/                @TODO-m1
+/backend/app/api/deps.py                  @TODO-m1
+/backend/app/models/user.py               @TODO-m1
+/frontend/src/features/auth/              @TODO-m1
+/frontend/src/context/AuthContext.jsx     @TODO-m1
+
+# M2 AES-256-GCM
+/backend/app/modules/encryption/          @TODO-m2
+/backend/app/models/file.py               @TODO-m2 @TODO-m4
+/frontend/src/features/files/             @TODO-m2
+
+# M3 RSA-OAEP key management
+/backend/app/modules/keys/                @TODO-m3
+/backend/app/models/key.py                @TODO-m3
+/frontend/src/features/keys/              @TODO-m3
+
+# M4 RSA-PSS signatures
+/backend/app/modules/signatures/          @TODO-m4
+/frontend/src/features/signatures/        @TODO-m4
+
+# M5 Sharing & access control
+/backend/app/modules/sharing/             @TODO-m5
+/backend/app/models/share.py              @TODO-m5
+/frontend/src/features/sharing/           @TODO-m5
+
+# M6 Audit logging
+/backend/app/modules/audit/               @TODO-m6
+/backend/app/models/audit.py              @TODO-m6
+/frontend/src/features/audit/             @TODO-m6
+
+# M7 Isolation Forest
+/backend/app/modules/anomaly/             @TODO-m7
+/backend/app/models/anomaly.py            @TODO-m7
+/frontend/src/features/anomaly/           @TODO-m7
+
+# M8 LLM analysis
+/backend/app/modules/llm_analysis/        @TODO-m8
+/backend/app/models/analysis.py           @TODO-m8
+/frontend/src/features/analysis/          @TODO-m8
+
+# M9 Verification & attack testing
+/backend/app/modules/verification/        @TODO-m9
+/backend/app/models/verification.py       @TODO-m9
+/backend/tests/security/                  @TODO-m9
+/frontend/src/features/verification/      @TODO-m9
+
+# M10 Transport security
+/backend/app/modules/transport/           @TODO-m10
+/infra/nginx/                             @TODO-m10
+/scripts/gen-dev-certs.sh                 @TODO-m10
+/frontend/src/features/transport/         @TODO-m10

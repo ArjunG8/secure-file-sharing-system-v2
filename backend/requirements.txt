@@ -1,0 +1,19 @@
+# Runtime dependencies (one per line; add yours in a small PR)
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+sqlalchemy>=2.0.30,<3.0
+alembic>=1.13,<2.0
+psycopg[binary]>=3.2,<4.0
+pydantic>=2.7,<3.0
+pydantic-settings>=2.3,<3.0
+email-validator>=2.1,<3.0
+python-multipart>=0.0.9
+# M1
+argon2-cffi>=23.1,<26.0
+pyjwt>=2.9,<3.0
+# M2 / M3 / M4 / M6
+cryptography>=43.0
+# M7
+scikit-learn>=1.5,<2.0
+numpy>=1.26
+joblib>=1.4

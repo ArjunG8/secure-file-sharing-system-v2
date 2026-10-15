@@ -1,0 +1,43 @@
+# Normalize line endings so Windows, macOS and Linux contributors (and Docker
+# images) all see the same files. Text is stored with LF in the repository.
+* text=auto
+
+# Shell scripts must be LF or they fail in Linux containers ("/usr/bin/env: 'sh\r'").
+*.sh      text eol=lf
+
+# Source and config files: LF everywhere for consistent diffs and Docker builds.
+*.py      text eol=lf
+*.js      text eol=lf
+*.jsx     text eol=lf
+*.mjs     text eol=lf
+*.cjs     text eol=lf
+*.ts      text eol=lf
+*.tsx     text eol=lf
+*.json    text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.md      text eol=lf
+*.toml    text eol=lf
+*.ini     text eol=lf
+*.mako    text eol=lf
+*.html    text eol=lf
+*.css     text eol=lf
+*.conf    text eol=lf
+*.txt     text eol=lf
+.env.example  text eol=lf
+Dockerfile    text eol=lf
+
+# Windows-only scripts keep CRLF.
+*.bat     text eol=crlf
+*.cmd     text eol=crlf
+*.ps1     text eol=crlf
+
+# Binary files: never convert.
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.pdf     binary
+*.woff    binary
+*.woff2   binary
