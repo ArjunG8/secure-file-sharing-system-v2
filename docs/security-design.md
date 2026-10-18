@@ -60,18 +60,35 @@ scope and may be discussed as future work.
 - Filenames are stored as metadata only; on-disk name is `<file_id>.bin`
   (prevents path traversal).
 
-### M3 — RSA-OAEP key management
-- Each user has two RSA-3072 key pairs (`public_exponent=65537`):
-  `purpose="encryption"` (RSA-OAEP, MGF1-SHA256, SHA-256, no label) and
-  `purpose="signing"` (used by M4). Key separation: never use one pair for both.
-- Private keys serialized PKCS#8 DER, then encrypted with AES-256-GCM under
-  `MASTER_KEY_ENCRYPTION_KEY` (32 bytes, base64 in env) with a random nonce
-  stored in `private_key_nonce`; AAD = `user_id.bytes + purpose`.
+### M3 — RSA/ECC key management
+- **RSA vs ECC (decision).** Both are supported, chosen per key by its stored
+  `algorithm` label, so they can coexist (e.g. before and after a rotation):
+
+  | Family | `purpose="encryption"` (file-key wrapping) | `purpose="signing"` (M4) |
+  |---|---|---|
+  | `rsa` (default) | `RSA-OAEP-3072-SHA256`: RSA-3072, e=65537, OAEP with MGF1-SHA256, SHA-256, no label | `RSA-PSS-3072-SHA256` |
+  | `ecc` | `ECIES-X25519-HKDF-SHA256-AES256GCM`: ephemeral X25519 → HKDF-SHA256 (info binds both public keys) → AES-256-GCM with the recipient key id as AAD; stored as `ephemeral_pub(32) ‖ nonce(12) ‖ ciphertext+tag` | `Ed25519` |
+
+  `DEFAULT_KEY_ALGORITHM` (`rsa`/`ecc`) picks the family for **new** keys only.
+  A key is only ever used with the algorithm on its label: there is no
+  cross-format use, so mixed users and rotations are safe. No migration was needed
+  (`user_keys.algorithm` is a string).
+- Key separation: every user has one active encryption key and one active signing
+  key; a pair is never used for both.
+- Keys are created **on first use** (wrap, sign, `/keys/me`), not at registration,
+  so M1 doesn't depend on M3. Concurrent first use is safe (savepoint plus the
+  one-active-key unique index).
+- Private keys: PKCS#8 DER, encrypted with AES-256-GCM under
+  `MASTER_KEY_ENCRYPTION_KEY` with a random 96-bit nonce (`private_key_nonce`) and
+  AAD = `"sfs-user-key-v1" ‖ user_id ‖ purpose ‖ key_id`. A ciphertext copied onto
+  another user's or key's row fails to decrypt. A wrong master key fails closed (500).
 - `fingerprint` = SHA-256 of the DER SubjectPublicKeyInfo, hex.
-- Rotation: new key pair → `is_active=True`, old → `is_active=False`,
-  `revoked_at=now`. Old private keys are retained (inactive) so existing
-  wrapped file keys and signatures still work; optionally re-wrap grants.
-- Algorithm label stored: `RSA-OAEP-3072-SHA256`, `RSA-PSS-3072-SHA256`.
+- Rotation (`POST /keys/rotate`, optionally switching family): old key →
+  `is_active=False`, `revoked_at=now`, but kept, so existing wrapped file keys
+  still unwrap and old signatures still verify. Grants are not re-wrapped automatically.
+- Unwrapping requires a key of **that user** and purpose `encryption`; any other key
+  id returns 404, and tampered or mismatched data returns 502.
+- Audit events: `key.generate`, `key.rotate`.
 
 ### M4 — RSA-PSS digital signatures
 - Padding: `PSS(mgf=MGF1(SHA256), salt_length=PSS.DIGEST_LENGTH)`, hash SHA-256.

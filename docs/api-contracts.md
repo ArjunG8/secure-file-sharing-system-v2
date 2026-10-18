@@ -106,8 +106,12 @@ Query: `?limit=50&offset=0` (limit max 200). Response:
 | Method | Path | Auth | Response |
 |---|---|---|---|
 | GET | `/keys/me` | 🔒 | 200 `[PublicKeyOut]` (active encryption + signing keys) |
-| POST | `/keys/rotate` | 🔒 | `{ "purpose": "encryption" \| "signing" }` → 200 `PublicKeyOut` |
-| GET | `/keys/users/{user_id}/public` | 🔒 | 200 `[PublicKeyOut]` |
+| POST | `/keys/rotate` | 🔒 | `{ "purpose": "encryption" \| "signing", "algorithm": "rsa" \| "ecc" \| null }` → 200 `PublicKeyOut` |
+| GET | `/keys/users/{user_id}/public` | 🔒 | 200 `[PublicKeyOut]`; 404 unknown user |
+
+Keys are created on first use, so `/keys/me` always returns one active key per purpose.
+`algorithm` is one of `RSA-OAEP-3072-SHA256`, `RSA-PSS-3072-SHA256`,
+`ECIES-X25519-HKDF-SHA256-AES256GCM`, `Ed25519`.
 
 ```jsonc
 // PublicKeyOut — private keys are NEVER returned by any endpoint

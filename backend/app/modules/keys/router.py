@@ -25,7 +25,8 @@ def rotate(
     data: RotateKeyRequest,
     user: User = Depends(get_current_user),
 ) -> PublicKeyOut:
-    return PublicKeyOut.model_validate(service.rotate_keys(db, user.id, data.purpose))
+    key = service.rotate_keys(db, user.id, data.purpose, data.algorithm)
+    return PublicKeyOut.model_validate(key)
 
 
 @router.get("/users/{user_id}/public", response_model=list[PublicKeyOut])
