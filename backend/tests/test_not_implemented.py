@@ -40,11 +40,7 @@ STUBBED["M2"] = [
 ]
 
 # ---------------------------------------------------------------- M3 (owner: M3)
-STUBBED["M3"] = [
-    ("get", "/api/v1/keys/me", {}),
-    ("post", "/api/v1/keys/rotate", {"json": {"purpose": "signing"}}),
-    ("get", f"/api/v1/keys/users/{FID}/public", {}),
-]
+STUBBED["M3"] = []  # implemented: see tests/modules/test_keys.py
 
 # ---------------------------------------------------------------- M4 (owner: M4)
 STUBBED["M4"] = [

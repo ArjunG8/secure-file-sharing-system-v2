@@ -145,6 +145,10 @@ def test_tables_are_empty_at_start_of_each_test(db):
 def test_client_as_overrides_current_user(client_as, create_user):
     alice = create_user()
     r = client_as(alice).get("/api/v1/keys/me")
-    # Reaches M3's own stub, proving M1's dependency was replaced by `alice`.
-    assert r.status_code == 501
-    assert r.json()["error"]["module"] == "M3"
+    # The request reaches M3 as `alice` (M1's dependency was replaced): either M3's
+    # honest stub, or - once M3 is implemented - alice's own keys.
+    if r.status_code == 501:
+        assert r.json()["error"]["module"] == "M3"
+    else:
+        assert r.status_code == 200
+        assert {k["user_id"] for k in r.json()} == {str(alice.id)}
