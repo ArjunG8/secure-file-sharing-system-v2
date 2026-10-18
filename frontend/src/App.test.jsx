@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
@@ -51,10 +50,9 @@ describe('App', () => {
     expect(screen.getAllByText('Not implemented')).toHaveLength(9)
   })
 
-  it('surfaces an honest 501 from an unimplemented module', async () => {
-    mockBackend()
+  it('shows backend errors on a module page instead of fake data', async () => {
+    mockBackend() // every module endpoint answers 501 here
     renderAt('/files')
-    await userEvent.click(screen.getByRole('button', { name: 'GET /files' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('HTTP 501 · not_implemented')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Not built yet')
   })
 })
