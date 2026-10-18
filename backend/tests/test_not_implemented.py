@@ -31,13 +31,7 @@ STUBBED["M1"] = [
 ]
 
 # ---------------------------------------------------------------- M2 (owner: M2)
-STUBBED["M2"] = [
-    ("post", "/api/v1/files", {"files": {"file": ("a.txt", b"hello", "text/plain")}}),
-    ("get", "/api/v1/files", {}),
-    ("get", f"/api/v1/files/{FID}", {}),
-    ("get", f"/api/v1/files/{FID}/download", {}),
-    ("delete", f"/api/v1/files/{FID}", {}),
-]
+STUBBED["M2"] = []  # implemented: see tests/modules/test_encryption.py
 
 # ---------------------------------------------------------------- M3 (owner: M3)
 STUBBED["M3"] = []  # implemented: see tests/modules/test_keys.py

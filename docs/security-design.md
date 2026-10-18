@@ -56,9 +56,26 @@ scope and may be discussed as future work.
 - Stored blob = ciphertext‖tag (as returned by `AESGCM.encrypt`). `nonce`
   stored in `files.nonce`. `ciphertext_sha256` and `plaintext_sha256` stored hex.
 - The raw file key is never persisted — only RSA-OAEP-wrapped copies (M3).
-- `MAX_UPLOAD_BYTES` (default 25 MiB) enforced before encryption.
-- Filenames are stored as metadata only; on-disk name is `<file_id>.bin`
-  (prevents path traversal).
+- `MAX_UPLOAD_BYTES` (default 25 MiB) is enforced while reading the upload, before
+  encryption (413). Starlette has already spooled the request body by then, so
+  nginx `client_max_body_size` (M10) is the first limit in production.
+- Filenames are metadata only: last path component, control characters removed, NFC,
+  at most 255 characters. The on-disk name is always `<file_id>.bin`, and
+  `storage.resolve` refuses any name that would leave `STORAGE_DIR`.
+- Blobs are written to a temporary file in `STORAGE_DIR`, fsync'ed and atomically
+  renamed, as the **last** step of an upload. A session `after_rollback` hook deletes the
+  blob if anything later fails, including the COMMIT itself. Deletion is a soft delete
+  of the record (the audit trail keeps its target), and the blob is removed after COMMIT.
+- Download order: `require_access` (M5) → ciphertext SHA-256 → RSA-PSS/Ed25519
+  manifest signature (M4) → unwrap the file key (M3) → AES-GCM decrypt (tag + AAD) →
+  plaintext SHA-256 → download counter (M5). Any failed check returns 502
+  `integrity_failure` with `details.check` and logs `file.integrity_failure`; no plaintext
+  is returned. Responses are `application/octet-stream`, `Content-Disposition:
+  attachment` (RFC 5987 UTF-8 name), `X-Content-Type-Options: nosniff`, `Cache-Control:
+  no-store`.
+- `GET /files` lists files with a currently valid grant, mirroring M5's grant rules for
+  metadata only. Every content or metadata read of a single file goes through
+  `sharing.require_access`.
 
 ### M3 — RSA/ECC key management
 - **RSA vs ECC (decision).** Both are supported, chosen per key by its stored

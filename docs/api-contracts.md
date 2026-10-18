@@ -90,6 +90,10 @@ Query: `?limit=50&offset=0` (limit max 200). Response:
 | GET | `/files/{file_id}/download` | 🔒 | – | 200 `application/octet-stream` (decrypted) |
 | DELETE | `/files/{file_id}` | 🔒 owner | – | 204 (soft delete + blob removal) |
 
+Errors: 404 for a missing file **or** no access (never 403, to avoid revealing which ids
+exist), 413 oversized upload, 502 `integrity_failure` with `details.check` ∈
+`ciphertext_sha256`, `signature`, `gcm_tag`, `plaintext_sha256` (or a missing blob).
+
 ```jsonc
 // FileOut
 {
