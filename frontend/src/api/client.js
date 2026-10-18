@@ -10,6 +10,24 @@ export function setAccessToken(token) {
   accessToken = token
 }
 
+// Called once on a 401 to try a silent refresh (registered by AuthContext, M1).
+let unauthorizedHandler = null
+
+export function setUnauthorizedHandler(handler) {
+  unauthorizedHandler = handler
+}
+
+function readCookie(name) {
+  const match = document.cookie.split('; ').find((c) => c.startsWith(`${name}=`))
+  return match ? decodeURIComponent(match.slice(name.length + 1)) : null
+}
+
+// Double-submit CSRF token for cookie-authenticated endpoints (POST /auth/refresh).
+export function csrfHeaders() {
+  const token = readCookie('sfs_csrf')
+  return token ? { 'X-CSRF-Token': token } : {}
+}
+
 export class ApiError extends Error {
   constructor(status, { code = 'http_error', message = 'Request failed', module = null, details = null } = {}) {
     super(message)
@@ -25,7 +43,8 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiRequest(path, { method = 'GET', body, formData, headers = {} } = {}) {
+export async function apiRequest(path, options = {}) {
+  const { method = 'GET', body, formData, headers = {}, retryOnUnauthorized = true } = options
   const requestHeaders = { ...headers }
   if (accessToken) requestHeaders.Authorization = `Bearer ${accessToken}`
 
@@ -47,6 +66,17 @@ export async function apiRequest(path, { method = 'GET', body, formData, headers
     })
   } catch {
     throw new ApiError(0, { code: 'network_error', message: 'Cannot reach the backend.' })
+  }
+
+  if (
+    response.status === 401 &&
+    retryOnUnauthorized &&
+    unauthorizedHandler &&
+    !path.startsWith('/auth/')
+  ) {
+    if (await unauthorizedHandler()) {
+      return apiRequest(path, { ...options, retryOnUnauthorized: false })
+    }
   }
 
   if (response.status === 204) return null

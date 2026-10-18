@@ -35,16 +35,37 @@ scope and may be discussed as future work.
 - Parameters (configurable via env, defaults per RFC 9106 / OWASP):
   `ARGON2_TIME_COST=3`, `ARGON2_MEMORY_COST_KIB=65536`, `ARGON2_PARALLELISM=4`.
 - On successful login, call `check_needs_rehash` and upgrade the hash.
-- Password policy: min 12 chars, max 128; reject if equals email/username.
+- Password policy: min 12 chars, max 128; reject if it equals or contains the
+  email local part or the username (when those are at least 4 characters).
 - Emails are stripped and lowercased before storage and lookup (the admin CLI
   relies on this).
-- Lockout: after 5 failures set `locked_until = now + 15 min`; return 423.
-  Login errors must not reveal whether the email exists.
-- Tokens: access JWT (HS256, `JWT_SECRET_KEY`, 15 min, claims `sub`, `iat`,
-  `exp`, `jti`, `type="access"`). Refresh token = 32 random bytes, stored only
-  as SHA-256 in `auth_sessions`, delivered as `HttpOnly; Secure; SameSite=Strict`
-  cookie, rotated on every refresh.
-- On registration, call `keys.service.ensure_user_keys` (M3).
+- Lockout: after `MAX_FAILED_LOGINS` (5) wrong passwords, set
+  `locked_until = now + LOCKOUT_MINUTES` (15) and return 423 while it lasts, without
+  checking the password. The counter is written in its own transaction, because the
+  failed request rolls back.
+- No user enumeration at login: an unknown email, a wrong password and an inactive
+  account all return the same 401 message, and an unknown email still costs one
+  Argon2id verification. Registration necessarily answers 409 for a taken
+  email/username; the rate limit below bounds probing.
+- Tokens: access JWT (HS256 only, `JWT_SECRET_KEY`, 15 min, claims `sub`, `sid`
+  (session id), `iat`, `nbf`, `exp`, `jti`, `iss`, `type="access"`). Every request
+  also checks that the `sid` session is still active, so logout, password change and
+  refresh-token reuse take effect immediately.
+- Refresh token: 32 random bytes, stored only as SHA-256 in `auth_sessions`, sent as
+  the `sfs_refresh` cookie (`HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth`).
+  It is rotated on every refresh. Presenting an already-rotated token revokes **all**
+  of that user's sessions (theft detection) and logs `auth.refresh_reuse`.
+- CSRF: `/auth/refresh` is the only cookie-authenticated endpoint. It requires the
+  double-submit header `X-CSRF-Token` matching the `sfs_csrf` cookie (readable by our
+  JavaScript, `Secure; SameSite=Strict`). Other endpoints use the bearer header, which
+  browsers never attach automatically.
+- Rate limiting (per client IP, sliding window, in memory per process): login
+  10/min, register 20/hour, refresh 30/min, answered with 429 and `Retry-After`. With
+  several backend processes, use nginx `limit_req` or a shared store instead.
+- Keys: M1 does not create key pairs. M3 creates them on first use (see M3).
+- Audit events: `auth.register`, `auth.login`, `auth.login_failed` (failure/denied,
+  `details.reason`), `auth.locked`, `auth.refresh`, `auth.refresh_reuse`,
+  `auth.logout`, `auth.password_change`. They never include passwords or tokens.
 
 ### M2 — AES-256-GCM file encryption
 - Library: `cryptography.hazmat.primitives.ciphers.aead.AESGCM`.

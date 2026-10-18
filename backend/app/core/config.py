@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     argon2_parallelism: int = Field(default=4, ge=1)
     max_failed_logins: int = Field(default=5, ge=1)
     lockout_minutes: int = Field(default=15, ge=1)
+    # Refresh/CSRF cookies are Secure by default. Browsers accept Secure cookies on
+    # http://localhost; set false only for other plain-HTTP development hosts.
+    auth_cookie_secure: bool = True
+    # Per-client-IP sliding-window limits (in-memory, per process).
+    rate_limit_enabled: bool = True
+    rate_limit_login_per_minute: int = Field(default=10, ge=1)
+    rate_limit_register_per_hour: int = Field(default=20, ge=1)
+    rate_limit_refresh_per_minute: int = Field(default=30, ge=1)
 
     # M2 / M3 - encryption and key management
     master_key_encryption_key: SecretStr
