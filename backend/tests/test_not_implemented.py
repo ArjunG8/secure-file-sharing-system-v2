@@ -56,12 +56,6 @@ STUBBED["M6"] = [
     ("get", "/api/v1/audit/verify", {}),
 ]
 
-# ---------------------------------------------------------------- M7 (owner: M7)
-STUBBED["M7"] = [
-    ("post", "/api/v1/anomaly/train", {"json": {}}),
-    ("post", "/api/v1/anomaly/score", {"json": {}}),
-    ("get", "/api/v1/anomaly/detections", {}),
-]
 
 # ---------------------------------------------------------------- M8 (owner: M8)
 STUBBED["M8"] = [
