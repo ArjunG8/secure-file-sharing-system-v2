@@ -2,9 +2,8 @@ from fastapi import APIRouter, Depends
 
 from app.api.deps import require_admin
 from app.core.database import DbSession
-from app.core.errors import NotImplementedFeature
 from app.models import User
-from app.modules.anomaly import MODULE_INFO, service
+from app.modules.anomaly import service
 from app.modules.anomaly.schemas import AnomalyOut, ModelInfoOut, ScoreRequest, TrainRequest
 from app.schemas.common import Page, PageParams, page_params
 
@@ -36,4 +35,6 @@ def detections(
     page: PageParams = Depends(page_params),
     admin: User = Depends(require_admin),
 ) -> Page[AnomalyOut]:
-    raise NotImplementedFeature(MODULE_INFO, "Detection listing")
+    rows, total = service.list_detections(db, only_anomalies, page.limit, page.offset)
+    return Page[AnomalyOut](items=[AnomalyOut.model_validate(r) for r in rows], total=total,
+                            limit=page.limit, offset=page.offset)
