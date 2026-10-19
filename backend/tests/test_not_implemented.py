@@ -74,11 +74,7 @@ STUBBED["M7"] = [
 ]
 
 # ---------------------------------------------------------------- M8 (owner: M8)
-STUBBED["M8"] = [
-    ("post", "/api/v1/analysis", {"json": LATER}),
-    ("get", "/api/v1/analysis", {}),
-    ("get", f"/api/v1/analysis/{FID}", {}),
-]
+STUBBED["M8"] = []  # implemented: see tests/modules/test_llm_analysis.py
 
 # ---------------------------------------------------------------- M9 (owner: M9)
 STUBBED["M9"] = [

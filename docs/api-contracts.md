@@ -194,6 +194,7 @@ Query: `?limit=50&offset=0` (limit max 200). Response:
 | Method | Path | Request | Response |
 |---|---|---|---|
 | POST | `/analysis` | `AnalysisRequest` | 201 `AnalysisOut` (or 503 if `LLM_PROVIDER=disabled`) |
+| | | | 422 if `until` ≤ `since`; 503 if disabled or misconfigured. A provider failure or invalid model output is stored as `status: "failed"` (still 201) |
 | GET | `/analysis` | pagination | 200 `Page[AnalysisOut]` |
 | GET | `/analysis/{analysis_id}` | – | 200 `AnalysisOut` |
 
