@@ -47,10 +47,7 @@ STUBBED["M3"] = [
 ]
 
 # ---------------------------------------------------------------- M4 (owner: M4)
-STUBBED["M4"] = [
-    ("get", f"/api/v1/signatures/files/{FID}", {}),
-    ("post", f"/api/v1/signatures/files/{FID}/verify", {}),
-]
+
 
 # ---------------------------------------------------------------- M5 (owner: M5)
 STUBBED["M5"] = [
