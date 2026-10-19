@@ -4,5 +4,5 @@ MODULE_INFO = ModuleInfo(
     number=9,
     key="verification",
     name="Cryptographic verification and attack testing",
-    implemented=False,
+    implemented=True,
 )
