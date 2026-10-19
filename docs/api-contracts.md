@@ -90,10 +90,6 @@ Query: `?limit=50&offset=0` (limit max 200). Response:
 | GET | `/files/{file_id}/download` | 🔒 | – | 200 `application/octet-stream` (decrypted) |
 | DELETE | `/files/{file_id}` | 🔒 owner | – | 204 (soft delete + blob removal) |
 
-Errors: 404 for a missing file **or** no access (never 403, to avoid revealing which ids
-exist), 413 oversized upload, 502 `integrity_failure` with `details.check` ∈
-`ciphertext_sha256`, `signature`, `gcm_tag`, `plaintext_sha256` (or a missing blob).
-
 ```jsonc
 // FileOut
 {
@@ -110,12 +106,8 @@ exist), 413 oversized upload, 502 `integrity_failure` with `details.check` ∈
 | Method | Path | Auth | Response |
 |---|---|---|---|
 | GET | `/keys/me` | 🔒 | 200 `[PublicKeyOut]` (active encryption + signing keys) |
-| POST | `/keys/rotate` | 🔒 | `{ "purpose": "encryption" \| "signing", "algorithm": "rsa" \| "ecc" \| null }` → 200 `PublicKeyOut` |
-| GET | `/keys/users/{user_id}/public` | 🔒 | 200 `[PublicKeyOut]`; 404 unknown user |
-
-Keys are created on first use, so `/keys/me` always returns one active key per purpose.
-`algorithm` is one of `RSA-OAEP-3072-SHA256`, `RSA-PSS-3072-SHA256`,
-`ECIES-X25519-HKDF-SHA256-AES256GCM`, `Ed25519`.
+| POST | `/keys/rotate` | 🔒 | `{ "purpose": "encryption" \| "signing" }` → 200 `PublicKeyOut` |
+| GET | `/keys/users/{user_id}/public` | 🔒 | 200 `[PublicKeyOut]` |
 
 ```jsonc
 // PublicKeyOut — private keys are NEVER returned by any endpoint
@@ -145,7 +137,11 @@ Keys are created on first use, so `/keys/me` always returns one active key per p
 | POST | `/shares` | 🔒 owner | `ShareCreate` | 201 `ShareOut` |
 | GET | `/shares/outgoing` | 🔒 | pagination | 200 `Page[ShareOut]` |
 | GET | `/shares/incoming` | 🔒 | pagination | 200 `Page[ShareOut]` |
-| DELETE | `/shares/{grant_id}` | 🔒 owner | – | 204 (sets `revoked_at`) |
+| DELETE | `/shares/{grant_id}` | 🔒 owner | – | 204 (sets `revoked_at`); 404 if not yours; 422 for the owner's own grant |
+
+`POST /shares`: 404 if the caller doesn't own the file or the recipient has no active
+account, 422 for sharing with yourself or a past `expires_at`. Listings show only
+`read` grants; `active` is false once a grant is revoked, expired or used up.
 
 ```jsonc
 // ShareCreate
@@ -153,7 +149,8 @@ Keys are created on first use, so `/keys/me` always returns one active key per p
 // ShareOut
 { "id": "uuid", "file_id": "uuid", "file_name": "report.pdf", "grantee_id": "uuid",
   "grantee_email": "b@b.edu", "granted_by_id": "uuid", "permission": "read",
-  "expires_at": null, "revoked_at": null, "max_downloads": null, "download_count": 0, "created_at": "..." }
+  "expires_at": null, "revoked_at": null, "max_downloads": null, "download_count": 0, "created_at": "...",
+  "active": true }
 ```
 
 ## 8. M6 — Audit log (`/audit`)

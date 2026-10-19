@@ -31,10 +31,20 @@ STUBBED["M1"] = [
 ]
 
 # ---------------------------------------------------------------- M2 (owner: M2)
-STUBBED["M2"] = []  # implemented: see tests/modules/test_encryption.py
+STUBBED["M2"] = [
+    ("post", "/api/v1/files", {"files": {"file": ("a.txt", b"hello", "text/plain")}}),
+    ("get", "/api/v1/files", {}),
+    ("get", f"/api/v1/files/{FID}", {}),
+    ("get", f"/api/v1/files/{FID}/download", {}),
+    ("delete", f"/api/v1/files/{FID}", {}),
+]
 
 # ---------------------------------------------------------------- M3 (owner: M3)
-STUBBED["M3"] = []  # implemented: see tests/modules/test_keys.py
+STUBBED["M3"] = [
+    ("get", "/api/v1/keys/me", {}),
+    ("post", "/api/v1/keys/rotate", {"json": {"purpose": "signing"}}),
+    ("get", f"/api/v1/keys/users/{FID}/public", {}),
+]
 
 # ---------------------------------------------------------------- M4 (owner: M4)
 STUBBED["M4"] = [
@@ -43,12 +53,7 @@ STUBBED["M4"] = [
 ]
 
 # ---------------------------------------------------------------- M5 (owner: M5)
-STUBBED["M5"] = [
-    ("post", "/api/v1/shares", {"json": {"file_id": FID, "recipient_email": "b@example.com"}}),
-    ("get", "/api/v1/shares/outgoing", {}),
-    ("get", "/api/v1/shares/incoming", {}),
-    ("delete", f"/api/v1/shares/{FID}", {}),
-]
+STUBBED["M5"] = []  # implemented: see tests/modules/test_sharing.py
 
 # ---------------------------------------------------------------- M6 (owner: M6)
 STUBBED["M6"] = [
@@ -56,6 +61,12 @@ STUBBED["M6"] = [
     ("get", "/api/v1/audit/verify", {}),
 ]
 
+# ---------------------------------------------------------------- M7 (owner: M7)
+STUBBED["M7"] = [
+    ("post", "/api/v1/anomaly/train", {"json": {}}),
+    ("post", "/api/v1/anomaly/score", {"json": {}}),
+    ("get", "/api/v1/anomaly/detections", {}),
+]
 
 # ---------------------------------------------------------------- M8 (owner: M8)
 STUBBED["M8"] = [

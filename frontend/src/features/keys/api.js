@@ -2,7 +2,4 @@
 import { api } from '../../api/client.js'
 
 export const myKeys = () => api.get('/keys/me')
-// algorithm: 'rsa' | 'ecc' | undefined (keep the current family)
-export const rotateKey = (purpose, algorithm) =>
-  api.post('/keys/rotate', algorithm ? { purpose, algorithm } : { purpose })
-export const userPublicKeys = (userId) => api.get(`/keys/users/${userId}/public`)
+export const rotateKey = (purpose) => api.post('/keys/rotate', { purpose })

@@ -56,56 +56,22 @@ scope and may be discussed as future work.
 - Stored blob = ciphertext‖tag (as returned by `AESGCM.encrypt`). `nonce`
   stored in `files.nonce`. `ciphertext_sha256` and `plaintext_sha256` stored hex.
 - The raw file key is never persisted — only RSA-OAEP-wrapped copies (M3).
-- `MAX_UPLOAD_BYTES` (default 25 MiB) is enforced while reading the upload, before
-  encryption (413). Starlette has already spooled the request body by then, so
-  nginx `client_max_body_size` (M10) is the first limit in production.
-- Filenames are metadata only: last path component, control characters removed, NFC,
-  at most 255 characters. The on-disk name is always `<file_id>.bin`, and
-  `storage.resolve` refuses any name that would leave `STORAGE_DIR`.
-- Blobs are written to a temporary file in `STORAGE_DIR`, fsync'ed and atomically
-  renamed, as the **last** step of an upload. A session `after_rollback` hook deletes the
-  blob if anything later fails, including the COMMIT itself. Deletion is a soft delete
-  of the record (the audit trail keeps its target), and the blob is removed after COMMIT.
-- Download order: `require_access` (M5) → ciphertext SHA-256 → RSA-PSS/Ed25519
-  manifest signature (M4) → unwrap the file key (M3) → AES-GCM decrypt (tag + AAD) →
-  plaintext SHA-256 → download counter (M5). Any failed check returns 502
-  `integrity_failure` with `details.check` and logs `file.integrity_failure`; no plaintext
-  is returned. Responses are `application/octet-stream`, `Content-Disposition:
-  attachment` (RFC 5987 UTF-8 name), `X-Content-Type-Options: nosniff`, `Cache-Control:
-  no-store`.
-- `GET /files` lists files with a currently valid grant, mirroring M5's grant rules for
-  metadata only. Every content or metadata read of a single file goes through
-  `sharing.require_access`.
+- `MAX_UPLOAD_BYTES` (default 25 MiB) enforced before encryption.
+- Filenames are stored as metadata only; on-disk name is `<file_id>.bin`
+  (prevents path traversal).
 
-### M3 — RSA/ECC key management
-- **RSA vs ECC (decision).** Both are supported, chosen per key by its stored
-  `algorithm` label, so they can coexist (e.g. before and after a rotation):
-
-  | Family | `purpose="encryption"` (file-key wrapping) | `purpose="signing"` (M4) |
-  |---|---|---|
-  | `rsa` (default) | `RSA-OAEP-3072-SHA256`: RSA-3072, e=65537, OAEP with MGF1-SHA256, SHA-256, no label | `RSA-PSS-3072-SHA256` |
-  | `ecc` | `ECIES-X25519-HKDF-SHA256-AES256GCM`: ephemeral X25519 → HKDF-SHA256 (info binds both public keys) → AES-256-GCM with the recipient key id as AAD; stored as `ephemeral_pub(32) ‖ nonce(12) ‖ ciphertext+tag` | `Ed25519` |
-
-  `DEFAULT_KEY_ALGORITHM` (`rsa`/`ecc`) picks the family for **new** keys only.
-  A key is only ever used with the algorithm on its label: there is no
-  cross-format use, so mixed users and rotations are safe. No migration was needed
-  (`user_keys.algorithm` is a string).
-- Key separation: every user has one active encryption key and one active signing
-  key; a pair is never used for both.
-- Keys are created **on first use** (wrap, sign, `/keys/me`), not at registration,
-  so M1 doesn't depend on M3. Concurrent first use is safe (savepoint plus the
-  one-active-key unique index).
-- Private keys: PKCS#8 DER, encrypted with AES-256-GCM under
-  `MASTER_KEY_ENCRYPTION_KEY` with a random 96-bit nonce (`private_key_nonce`) and
-  AAD = `"sfs-user-key-v1" ‖ user_id ‖ purpose ‖ key_id`. A ciphertext copied onto
-  another user's or key's row fails to decrypt. A wrong master key fails closed (500).
+### M3 — RSA-OAEP key management
+- Each user has two RSA-3072 key pairs (`public_exponent=65537`):
+  `purpose="encryption"` (RSA-OAEP, MGF1-SHA256, SHA-256, no label) and
+  `purpose="signing"` (used by M4). Key separation: never use one pair for both.
+- Private keys serialized PKCS#8 DER, then encrypted with AES-256-GCM under
+  `MASTER_KEY_ENCRYPTION_KEY` (32 bytes, base64 in env) with a random nonce
+  stored in `private_key_nonce`; AAD = `user_id.bytes + purpose`.
 - `fingerprint` = SHA-256 of the DER SubjectPublicKeyInfo, hex.
-- Rotation (`POST /keys/rotate`, optionally switching family): old key →
-  `is_active=False`, `revoked_at=now`, but kept, so existing wrapped file keys
-  still unwrap and old signatures still verify. Grants are not re-wrapped automatically.
-- Unwrapping requires a key of **that user** and purpose `encryption`; any other key
-  id returns 404, and tampered or mismatched data returns 502.
-- Audit events: `key.generate`, `key.rotate`.
+- Rotation: new key pair → `is_active=True`, old → `is_active=False`,
+  `revoked_at=now`. Old private keys are retained (inactive) so existing
+  wrapped file keys and signatures still work; optionally re-wrap grants.
+- Algorithm label stored: `RSA-OAEP-3072-SHA256`, `RSA-PSS-3072-SHA256`.
 
 ### M4 — RSA-PSS digital signatures
 - Padding: `PSS(mgf=MGF1(SHA256), salt_length=PSS.DIGEST_LENGTH)`, hash SHA-256.
@@ -132,6 +98,20 @@ scope and may be discussed as future work.
 - Return **404** (not 403) when a user lacks access to a file id, to avoid
   revealing existence. Log `share.access_denied`.
 - Increment `download_count` atomically (`UPDATE ... SET download_count = download_count + 1 WHERE ... AND download_count < max_downloads`).
+  Implemented with `RETURNING`; a download that loses the race is a denial. Verified on
+  PostgreSQL 18: 10 concurrent downloads with `max_downloads=3` → exactly 3 succeed.
+- `require_access` (`app/modules/sharing/service.py`) is the only enforcement point and
+  is called for every read of content, metadata or signatures (M2, M4, M9). Every
+  failure is recorded as `share.access_denied` (`details.reason` ∈ `no_such_file`,
+  `no_grant`, `revoked`, `expired`, `download_limit_reached`, `not_owner`) **before**
+  raising, so the event survives the rollback. All failures return the identical 404
+  `File not found.` (no existence oracle).
+- Owner grants are never limited or expirable, and can't be revoked (delete the file
+  instead). A re-share to the same user updates their single grant row (fresh wrapped
+  key, counters reset), matching the unique (`file_id`, `grantee_id`) constraint.
+- Sharing requires an active recipient account. An unknown email returns 404, which
+  lets a signed-in user check whether an email is registered; this is accepted for
+  this project and bounded by authentication.
 
 ### M6 — Tamper-evident audit log
 - Append-only from the application's perspective (no update/delete routes).

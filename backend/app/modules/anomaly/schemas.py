@@ -18,7 +18,6 @@ class ScoreRequest(BaseModel):
 class ModelInfoOut(BaseModel):
     model_version: str
     trained_on_events: int
-    trained_on_windows: int
     features: list[str]
     contamination: float
 

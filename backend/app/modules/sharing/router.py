@@ -4,9 +4,8 @@ from fastapi import APIRouter, Depends, status
 
 from app.api.deps import get_current_user
 from app.core.database import DbSession
-from app.core.errors import NotImplementedFeature
 from app.models import User
-from app.modules.sharing import MODULE_INFO, service
+from app.modules.sharing import service
 from app.modules.sharing.schemas import ShareCreate, ShareOut
 from app.schemas.common import Page, PageParams, page_params
 
@@ -19,10 +18,10 @@ def create_share(
     data: ShareCreate,
     user: User = Depends(get_current_user),
 ) -> ShareOut:
-    service.share_file(
+    grant = service.share_file(
         db, user.id, data.file_id, data.recipient_email, data.expires_at, data.max_downloads
     )
-    raise NotImplementedFeature(MODULE_INFO, "Share response")
+    return service.share_out(db, grant)
 
 
 @router.get("/outgoing", response_model=Page[ShareOut])
@@ -31,7 +30,8 @@ def outgoing(
     page: PageParams = Depends(page_params),
     user: User = Depends(get_current_user),
 ) -> Page[ShareOut]:
-    raise NotImplementedFeature(MODULE_INFO, "Outgoing share listing")
+    items, total = service.outgoing_shares(db, user.id, page.limit, page.offset)
+    return Page[ShareOut](items=items, total=total, limit=page.limit, offset=page.offset)
 
 
 @router.get("/incoming", response_model=Page[ShareOut])
@@ -40,7 +40,8 @@ def incoming(
     page: PageParams = Depends(page_params),
     user: User = Depends(get_current_user),
 ) -> Page[ShareOut]:
-    raise NotImplementedFeature(MODULE_INFO, "Incoming share listing")
+    items, total = service.incoming_shares(db, user.id, page.limit, page.offset)
+    return Page[ShareOut](items=items, total=total, limit=page.limit, offset=page.offset)
 
 
 @router.delete("/{grant_id}", status_code=status.HTTP_204_NO_CONTENT)

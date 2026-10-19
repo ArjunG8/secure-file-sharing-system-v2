@@ -55,9 +55,6 @@ class Settings(BaseSettings):
 
     # M2 / M3 - encryption and key management
     master_key_encryption_key: SecretStr
-    # Algorithm family for newly created user key pairs (existing keys keep their own):
-    # "rsa" = RSA-3072 OAEP/PSS (default), "ecc" = X25519 ECIES + Ed25519.
-    default_key_algorithm: Literal["rsa", "ecc"] = "rsa"
     storage_dir: Path = Path("/data/files")
     max_upload_bytes: int = Field(default=25 * 1024 * 1024, ge=1)
 
