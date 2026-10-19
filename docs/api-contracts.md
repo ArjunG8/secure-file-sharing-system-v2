@@ -60,9 +60,9 @@ Query: `?limit=50&offset=0` (limit max 200). Response:
 
 | Method | Path | Auth | Request | Response |
 |---|---|---|---|---|
-| POST | `/auth/register` | – | `RegisterRequest` | 201 `UserOut` |
-| POST | `/auth/login` | – | `LoginRequest` | 200 `TokenResponse` (+ refresh cookie) |
-| POST | `/auth/refresh` | cookie | – | 200 `TokenResponse` |
+| POST | `/auth/register` | – | `RegisterRequest` | 201 `UserOut`; 409 taken; 422 policy; 429 |
+| POST | `/auth/login` | – | `LoginRequest` | 200 `TokenResponse` + `sfs_refresh` and `sfs_csrf` cookies; 401; 423 locked; 429 |
+| POST | `/auth/refresh` | cookie + `X-CSRF-Token` header | – | 200 `TokenResponse` + rotated cookies; 401; 403 CSRF; 429 |
 | POST | `/auth/logout` | 🔒 | – | 204 |
 | GET | `/auth/me` | 🔒 | – | 200 `UserOut` |
 | POST | `/auth/change-password` | 🔒 | `ChangePasswordRequest` | 204 |
@@ -79,6 +79,11 @@ Query: `?limit=50&offset=0` (limit max 200). Response:
 // ChangePasswordRequest
 { "current_password": "...", "new_password": "..." }
 ```
+
+- 🔒 endpoints return 401 with `WWW-Authenticate: Bearer` for a missing, malformed,
+  expired or revoked token.
+- `logout` and `change-password` clear both cookies; `change-password` ends **every**
+  session (sign in again). A wrong `current_password` returns 403.
 
 ## 4. M2 — Files & encryption (`/files`)
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ApiError, api, setAccessToken } from './client.js'
+import { ApiError, api, csrfHeaders, setAccessToken, setUnauthorizedHandler } from './client.js'
 
 function jsonResponse(status, body) {
   return new Response(JSON.stringify(body), {
@@ -42,5 +42,38 @@ describe('api client', () => {
     setAccessToken(null)
     await api.get('/auth/me')
     expect(spy.mock.calls[1][1].headers.Authorization).toBeUndefined()
+  })
+
+  it('retries once after a successful silent refresh on 401', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse(401, { error: { code: 'unauthenticated', message: 'expired' } }))
+      .mockResolvedValueOnce(jsonResponse(200, { items: [] }))
+    const handler = vi.fn().mockImplementation(async () => {
+      setAccessToken('fresh-token')
+      return true
+    })
+    setUnauthorizedHandler(handler)
+    await expect(api.get('/files')).resolves.toEqual({ items: [] })
+    expect(handler).toHaveBeenCalledTimes(1)
+    expect(spy.mock.calls[1][1].headers.Authorization).toBe('Bearer fresh-token')
+    setUnauthorizedHandler(null)
+    setAccessToken(null)
+  })
+
+  it('does not loop when the refresh fails', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse(401, { error: { code: 'unauthenticated', message: 'x' } }))
+    const handler = vi.fn().mockResolvedValue(false)
+    setUnauthorizedHandler(handler)
+    const error = await api.get('/files').catch((e) => e)
+    expect(error.status).toBe(401)
+    expect(handler).toHaveBeenCalledTimes(1)
+    setUnauthorizedHandler(null)
+  })
+
+  it('reads the CSRF cookie into the double-submit header', () => {
+    document.cookie = 'sfs_csrf=abc123; path=/'
+    expect(csrfHeaders()).toEqual({ 'X-CSRF-Token': 'abc123' })
+    document.cookie = 'sfs_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'
+    expect(csrfHeaders()).toEqual({})
   })
 })

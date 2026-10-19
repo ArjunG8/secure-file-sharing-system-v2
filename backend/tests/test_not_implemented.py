@@ -20,15 +20,7 @@ LATER = {"since": "2026-01-01T00:00:00Z", "until": "2026-01-02T00:00:00Z"}
 STUBBED: dict[str, list[tuple[str, str, dict]]] = {}
 
 # ---------------------------------------------------------------- M1 (owner: M1)
-STUBBED["M1"] = [
-    ("post", "/api/v1/auth/register",
-     {"json": {"email": "a@example.com", "username": "alice", "password": "x" * 12}}),
-    ("post", "/api/v1/auth/login", {"json": {"email": "a@example.com", "password": "x"}}),
-    ("post", "/api/v1/auth/refresh", {}),
-    ("post", "/api/v1/auth/logout", {}),
-    ("post", "/api/v1/auth/change-password",
-     {"json": {"current_password": "x", "new_password": "y" * 12}}),
-]
+STUBBED["M1"] = []  # implemented: see tests/modules/test_auth.py
 
 # ---------------------------------------------------------------- M2 (owner: M2)
 STUBBED["M2"] = []  # implemented: see tests/modules/test_encryption.py
