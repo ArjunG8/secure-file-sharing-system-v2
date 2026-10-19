@@ -14,7 +14,6 @@ from app.models import File, UserKey
 from app.modules.keys.service import get_active_key, load_private_key
 from app.modules.signatures.schemas import SignatureResult
 
-
 ALGORITHM = "RSA-PSS-3072-SHA256"
 
 

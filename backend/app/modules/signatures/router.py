@@ -2,14 +2,14 @@
 import base64
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.deps import get_current_user
 from app.core.database import DbSession
 from app.models import File, User
-from app.modules.signatures import MODULE_INFO, service
+from app.modules.signatures import service
 from app.modules.signatures.schemas import SignatureOut, SignatureVerifyResult
 
 router = APIRouter()
@@ -55,6 +55,6 @@ def verify_signature(
     return SignatureVerifyResult(
         file_id=file.id,
         valid=valid,
-        checked_at=datetime.now(timezone.utc),
+        checked_at=datetime.now(UTC),
         reason=None if valid else "missing_or_invalid_signature",
     )
