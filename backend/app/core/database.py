@@ -19,6 +19,7 @@ import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 from functools import lru_cache
+from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends
@@ -34,6 +35,20 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _AUDIT_QUEUE_KEY = "pending_audit_events"
+ROOT_DIR = Path(__file__).resolve().parents[3]
+
+
+def _normalize_sqlite_url(url: str) -> str:
+    if not url.startswith("sqlite") or ":memory:" in url:
+        return url
+    prefix, sep, path_str = url.partition(":///")
+    if not sep:
+        return url
+    db_path = Path(path_str)
+    if not db_path.is_absolute():
+        db_path = (ROOT_DIR / db_path).resolve()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    return f"{prefix}:///{db_path.as_posix()}"
 
 
 def _enable_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:
@@ -45,7 +60,7 @@ def _enable_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:
 
 @lru_cache
 def get_engine() -> Engine:
-    url = get_settings().database_url
+    url = _normalize_sqlite_url(get_settings().database_url)
     kwargs: dict = {"pool_pre_ping": True}
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}

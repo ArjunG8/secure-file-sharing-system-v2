@@ -201,14 +201,31 @@ scope and may be discussed as future work.
   not claim real-world accuracy.
 
 ### M8 — LLM-based security event analysis
-- Provider configured by `LLM_PROVIDER` (`disabled` by default), `LLM_API_KEY`,
-  `LLM_MODEL`. When disabled, endpoints return 503 — never fake output.
-- **Redaction before sending:** drop `user_agent`, hash/truncate IPs, replace
-  emails and UUIDs with stable pseudonyms; never send file contents or keys.
-- Treat events as untrusted data in the prompt (prompt-injection defense:
-  delimit events, instruct the model to ignore instructions within them,
-  validate the JSON response against the `findings` schema).
-- Store `prompt_sha256`, not the full prompt, plus provider/model used.
+- `LLM_PROVIDER`: `disabled` (default; `/analysis` returns 503 and nothing is
+  fabricated), `fake` (offline deterministic rules over the same redacted prompt, for
+  demos and tests), or `openai_compatible` (`POST {LLM_BASE_URL}/chat/completions` with
+  `LLM_API_KEY`, `LLM_MODEL`, `LLM_TIMEOUT_SECONDS`). No SDK is used and CI needs no key.
+  A non-local `http://` base URL is refused: data only leaves the server over TLS.
+- **Redaction** (`redaction.py`), before anything reaches a provider: actor and resource
+  ids become keyed pseudonyms (HMAC, key derived from `AUDIT_HMAC_KEY`, stable so the
+  model can correlate events); IPv4 is cut to /24 and IPv6 to /48; user agents are
+  dropped; `details` keeps only allowlisted keys with scalar values, and emails, UUIDs and
+  token-like strings in them are replaced. Passwords, keys, tokens and file contents are
+  never in audit details, and unexpected fields are dropped rather than forwarded.
+- **Prompt injection:** the system prompt declares the `<data>` block untrusted and says
+  to ignore instructions inside it. The data is JSON-encoded with `<` escaped, so event
+  text can't close the block.
+- **Output validation:** the reply must be a JSON object matching `ModelOutput` (summary ≤
+  4000 chars, ≤ 20 findings, severities from a fixed set). Unknown fields are dropped,
+  and evidence ids not present in the input are removed. Anything else stores the
+  analysis as `failed` with a neutral message, and provider errors and timeouts likewise.
+- Stored per run: scope, provider, model, `prompt_sha256` (not the prompt), status,
+  summary and findings. The API key is never stored. Runs are audited (`analysis.run`).
+- **LLM output has no authority:** it is advisory text for an admin. No code path uses it
+  for authentication, authorization, access control or cryptographic verification.
+- The provider call runs inside the request (bounded by `LLM_TIMEOUT_SECONDS`) and holds
+  a database connection meanwhile. That is acceptable for an admin-only endpoint; a
+  background job would be needed at larger scale.
 
 ### M9 — Cryptographic verification & attack testing
 - `/verification` endpoints run: GCM decrypt check, ciphertext SHA-256 match,

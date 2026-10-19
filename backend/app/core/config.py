@@ -77,9 +77,13 @@ class Settings(BaseSettings):
     anomaly_contamination: float = Field(default=0.05, gt=0, le=0.5)
 
     # M8 - LLM analysis (disabled unless explicitly configured)
-    llm_provider: str = "disabled"
+    # disabled: /analysis returns 503 | fake: deterministic local rules, no network |
+    # openai_compatible: POST {llm_base_url}/chat/completions with llm_api_key
+    llm_provider: Literal["disabled", "fake", "openai_compatible"] = "disabled"
     llm_api_key: SecretStr | None = None
     llm_model: str = ""
+    llm_base_url: str = ""
+    llm_timeout_seconds: float = Field(default=20, gt=0, le=120)
 
     # M10 - transport
     cors_origins: str = "http://localhost:5173"
@@ -101,7 +105,10 @@ class Settings(BaseSettings):
 
     @property
     def llm_enabled(self) -> bool:
-        return self.llm_provider != "disabled" and self.llm_api_key is not None
+        if self.llm_provider == "fake":
+            return True
+        has_key = self.llm_api_key is not None and bool(self.llm_api_key.get_secret_value())
+        return self.llm_provider == "openai_compatible" and has_key and bool(self.llm_base_url)
 
 
 @lru_cache
