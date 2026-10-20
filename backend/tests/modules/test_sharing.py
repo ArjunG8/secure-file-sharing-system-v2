@@ -1,8 +1,8 @@
 """M5: default-deny access control, sharing, revocation, expiry, download limits, IDOR.
 
-M3 is a stub on this branch, so key wrapping is a TEST DOUBLE that tags each wrapped key
-with its recipient's user id - enough to prove M5 re-wraps for the right user without
-ever storing the raw key. Real RSA/ECC wrapping is covered by M3 and the M9 suite.
+Key wrapping here is a TEST DOUBLE that tags each wrapped key with its recipient's user
+id - enough to prove M5 re-wraps for the right user without ever storing the raw key.
+The same flows with real M2/M3 RSA and ECC keys are in test_sharing_integration.py.
 """
 
 import os

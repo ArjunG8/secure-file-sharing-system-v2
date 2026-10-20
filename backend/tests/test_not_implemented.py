@@ -11,7 +11,6 @@ import uuid
 import pytest
 
 from app.core.modules import all_modules
-from tests.helpers import make_user
 
 FID = str(uuid.uuid4())
 LATER = {"since": "2026-01-01T00:00:00Z", "until": "2026-01-02T00:00:00Z"}
@@ -20,31 +19,13 @@ LATER = {"since": "2026-01-01T00:00:00Z", "until": "2026-01-02T00:00:00Z"}
 STUBBED: dict[str, list[tuple[str, str, dict]]] = {}
 
 # ---------------------------------------------------------------- M1 (owner: M1)
-STUBBED["M1"] = [
-    ("post", "/api/v1/auth/register",
-     {"json": {"email": "a@example.com", "username": "alice", "password": "x" * 12}}),
-    ("post", "/api/v1/auth/login", {"json": {"email": "a@example.com", "password": "x"}}),
-    ("post", "/api/v1/auth/refresh", {}),
-    ("post", "/api/v1/auth/logout", {}),
-    ("post", "/api/v1/auth/change-password",
-     {"json": {"current_password": "x", "new_password": "y" * 12}}),
-]
+STUBBED["M1"] = []  # implemented: see tests/modules/test_auth.py
 
 # ---------------------------------------------------------------- M2 (owner: M2)
-STUBBED["M2"] = [
-    ("post", "/api/v1/files", {"files": {"file": ("a.txt", b"hello", "text/plain")}}),
-    ("get", "/api/v1/files", {}),
-    ("get", f"/api/v1/files/{FID}", {}),
-    ("get", f"/api/v1/files/{FID}/download", {}),
-    ("delete", f"/api/v1/files/{FID}", {}),
-]
+STUBBED["M2"] = []  # implemented: see tests/modules/test_encryption.py
 
 # ---------------------------------------------------------------- M3 (owner: M3)
-STUBBED["M3"] = [
-    ("get", "/api/v1/keys/me", {}),
-    ("post", "/api/v1/keys/rotate", {"json": {"purpose": "signing"}}),
-    ("get", f"/api/v1/keys/users/{FID}/public", {}),
-]
+STUBBED["M3"] = []  # implemented: see tests/modules/test_keys.py
 
 # ---------------------------------------------------------------- M4 (owner: M4)
 STUBBED["M4"] = [
@@ -55,32 +36,14 @@ STUBBED["M4"] = [
 # ---------------------------------------------------------------- M5 (owner: M5)
 STUBBED["M5"] = []  # implemented: see tests/modules/test_sharing.py
 
-# ---------------------------------------------------------------- M6 (owner: M6)
-STUBBED["M6"] = [
-    ("get", "/api/v1/audit/logs", {}),
-    ("get", "/api/v1/audit/verify", {}),
-]
 
-# ---------------------------------------------------------------- M7 (owner: M7)
-STUBBED["M7"] = [
-    ("post", "/api/v1/anomaly/train", {"json": {}}),
-    ("post", "/api/v1/anomaly/score", {"json": {}}),
-    ("get", "/api/v1/anomaly/detections", {}),
-]
+
 
 # ---------------------------------------------------------------- M8 (owner: M8)
-STUBBED["M8"] = [
-    ("post", "/api/v1/analysis", {"json": LATER}),
-    ("get", "/api/v1/analysis", {}),
-    ("get", f"/api/v1/analysis/{FID}", {}),
-]
+STUBBED["M8"] = []  # implemented: see tests/modules/test_llm_analysis.py
 
 # ---------------------------------------------------------------- M9 (owner: M9)
-STUBBED["M9"] = [
-    ("post", f"/api/v1/verification/files/{FID}", {}),
-    ("post", "/api/v1/verification/audit-chain", {}),
-    ("get", "/api/v1/verification/runs", {}),
-]
+STUBBED["M9"] = []  # implemented: see tests/modules/test_verification.py
 
 # ---------------------------------------------------------------- M10 (owner: M10)
 STUBBED["M10"] = [
@@ -95,11 +58,10 @@ STUBBED_ENDPOINTS = [
     for method, path, kwargs in endpoints
 ]
 
-
 @pytest.fixture
-def admin_client(client_as):
-    # Bypass M1 so each endpoint reaches its own module's code.
-    return client_as(make_user(role="admin"))
+def admin_client(client_as, create_user):
+    # Persist the admin so audit events can reference a valid user.
+    return client_as(create_user(role="admin"))
 
 
 @pytest.mark.parametrize(

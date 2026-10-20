@@ -60,9 +60,9 @@ Query: `?limit=50&offset=0` (limit max 200). Response:
 
 | Method | Path | Auth | Request | Response |
 |---|---|---|---|---|
-| POST | `/auth/register` | – | `RegisterRequest` | 201 `UserOut` |
-| POST | `/auth/login` | – | `LoginRequest` | 200 `TokenResponse` (+ refresh cookie) |
-| POST | `/auth/refresh` | cookie | – | 200 `TokenResponse` |
+| POST | `/auth/register` | – | `RegisterRequest` | 201 `UserOut`; 409 taken; 422 policy; 429 |
+| POST | `/auth/login` | – | `LoginRequest` | 200 `TokenResponse` + `sfs_refresh` and `sfs_csrf` cookies; 401; 423 locked; 429 |
+| POST | `/auth/refresh` | cookie + `X-CSRF-Token` header | – | 200 `TokenResponse` + rotated cookies; 401; 403 CSRF; 429 |
 | POST | `/auth/logout` | 🔒 | – | 204 |
 | GET | `/auth/me` | 🔒 | – | 200 `UserOut` |
 | POST | `/auth/change-password` | 🔒 | `ChangePasswordRequest` | 204 |
@@ -80,6 +80,11 @@ Query: `?limit=50&offset=0` (limit max 200). Response:
 { "current_password": "...", "new_password": "..." }
 ```
 
+- 🔒 endpoints return 401 with `WWW-Authenticate: Bearer` for a missing, malformed,
+  expired or revoked token.
+- `logout` and `change-password` clear both cookies; `change-password` ends **every**
+  session (sign in again). A wrong `current_password` returns 403.
+
 ## 4. M2 — Files & encryption (`/files`)
 
 | Method | Path | Auth | Request | Response |
@@ -89,6 +94,10 @@ Query: `?limit=50&offset=0` (limit max 200). Response:
 | GET | `/files/{file_id}` | 🔒 | – | 200 `FileOut` |
 | GET | `/files/{file_id}/download` | 🔒 | – | 200 `application/octet-stream` (decrypted) |
 | DELETE | `/files/{file_id}` | 🔒 owner | – | 204 (soft delete + blob removal) |
+
+Errors: 404 for a missing file **or** no access (never 403, to avoid revealing which ids
+exist), 413 oversized upload, 502 `integrity_failure` with `details.check` ∈
+`ciphertext_sha256`, `signature`, `gcm_tag`, `plaintext_sha256` (or a missing blob).
 
 ```jsonc
 // FileOut
@@ -106,8 +115,12 @@ Query: `?limit=50&offset=0` (limit max 200). Response:
 | Method | Path | Auth | Response |
 |---|---|---|---|
 | GET | `/keys/me` | 🔒 | 200 `[PublicKeyOut]` (active encryption + signing keys) |
-| POST | `/keys/rotate` | 🔒 | `{ "purpose": "encryption" \| "signing" }` → 200 `PublicKeyOut` |
-| GET | `/keys/users/{user_id}/public` | 🔒 | 200 `[PublicKeyOut]` |
+| POST | `/keys/rotate` | 🔒 | `{ "purpose": "encryption" \| "signing", "algorithm": "rsa" \| "ecc" \| null }` → 200 `PublicKeyOut` |
+| GET | `/keys/users/{user_id}/public` | 🔒 | 200 `[PublicKeyOut]`; 404 unknown user |
+
+Keys are created on first use, so `/keys/me` always returns one active key per purpose.
+`algorithm` is one of `RSA-OAEP-3072-SHA256`, `RSA-PSS-3072-SHA256`,
+`ECIES-X25519-HKDF-SHA256-AES256GCM`, `Ed25519`.
 
 ```jsonc
 // PublicKeyOut — private keys are NEVER returned by any endpoint
@@ -199,6 +212,7 @@ account, 422 for sharing with yourself or a past `expires_at`. Listings show onl
 | Method | Path | Request | Response |
 |---|---|---|---|
 | POST | `/analysis` | `AnalysisRequest` | 201 `AnalysisOut` (or 503 if `LLM_PROVIDER=disabled`) |
+| | | | 422 if `until` ≤ `since`; 503 if disabled or misconfigured. A provider failure or invalid model output is stored as `status: "failed"` (still 201) |
 | GET | `/analysis` | pagination | 200 `Page[AnalysisOut]` |
 | GET | `/analysis/{analysis_id}` | – | 200 `AnalysisOut` |
 
