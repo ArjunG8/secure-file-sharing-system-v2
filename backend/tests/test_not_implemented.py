@@ -46,9 +46,7 @@ STUBBED["M8"] = []  # implemented: see tests/modules/test_llm_analysis.py
 STUBBED["M9"] = []  # implemented: see tests/modules/test_verification.py
 
 # ---------------------------------------------------------------- M10 (owner: M10)
-STUBBED["M10"] = [
-    ("get", "/api/v1/transport/status", {}),
-]
+STUBBED["M10"] = []  # implemented: see tests/modules/test_transport.py
 
 # ---------------------------------------------------------------- end of module blocks
 
