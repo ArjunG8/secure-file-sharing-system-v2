@@ -8,9 +8,9 @@ Test doubles, and why:
 - M4 (signatures) is a stub on this branch, and upload signs the manifest. While M4 reports
   implemented=False, `m4` substitutes a SHA-256 digest of the manifest (NOT a signature).
   Once M4 is merged the fixture does nothing and these tests run against real RSA-PSS.
-- M6 (audit chain) is a stub, so audit_service.append_entries is replaced by the shared
-  fake_append_entries helper (as in test_sharing.py / test_encryption.py) to make queued
-  events visible in audit_logs.
+- M6: audit_service.append_entries is replaced by the shared fake_append_entries helper
+  (as in test_sharing.py / test_encryption.py), so these tests check which events M5
+  records without depending on M6's HMAC chain (covered by test_audit.py).
 """
 
 import hashlib
@@ -92,8 +92,10 @@ def grant_of(db, file_id, user):
 
 
 def events(db, event_type):
+    """Audit rows of one type in insertion order (PostgreSQL has no default order)."""
     db.expire_all()
-    return db.scalars(select(AuditLog).where(AuditLog.event_type == event_type)).all()
+    return db.scalars(select(AuditLog).where(AuditLog.event_type == event_type)
+                      .order_by(AuditLog.id)).all()
 
 
 def test_share_download_and_revoke_with_real_keys(family, people, client_as, db):
