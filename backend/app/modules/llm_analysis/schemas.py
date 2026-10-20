@@ -15,10 +15,21 @@ class AnalysisRequest(BaseModel):
 
 
 class Finding(BaseModel):
+    """Validated shape of one model finding. Anything else in the model output is dropped."""
+
+    model_config = {"extra": "ignore"}
+
     severity: Literal["low", "medium", "high", "critical"]
-    title: str
-    evidence_event_ids: list[int] = Field(default_factory=list)
-    recommendation: str
+    title: str = Field(min_length=1, max_length=200)
+    evidence_event_ids: list[int] = Field(default_factory=list, max_length=50)
+    recommendation: str = Field(min_length=1, max_length=1000)
+
+
+class ModelOutput(BaseModel):
+    model_config = {"extra": "ignore"}
+
+    summary: str = Field(min_length=1, max_length=4000)
+    findings: list[Finding] = Field(default_factory=list, max_length=20)
 
 
 class AnalysisOut(ORMModel):

@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     argon2_parallelism: int = Field(default=4, ge=1)
     max_failed_logins: int = Field(default=5, ge=1)
     lockout_minutes: int = Field(default=15, ge=1)
+    # Refresh/CSRF cookies are Secure by default. Browsers accept Secure cookies on
+    # http://localhost; set false only for other plain-HTTP development hosts.
+    auth_cookie_secure: bool = True
+    # Per-client-IP sliding-window limits (in-memory, per process).
+    rate_limit_enabled: bool = True
+    rate_limit_login_per_minute: int = Field(default=10, ge=1)
+    rate_limit_register_per_hour: int = Field(default=20, ge=1)
+    rate_limit_refresh_per_minute: int = Field(default=30, ge=1)
 
     # M2 / M3 - encryption and key management
     master_key_encryption_key: SecretStr
@@ -69,9 +77,13 @@ class Settings(BaseSettings):
     anomaly_contamination: float = Field(default=0.05, gt=0, le=0.5)
 
     # M8 - LLM analysis (disabled unless explicitly configured)
-    llm_provider: str = "disabled"
+    # disabled: /analysis returns 503 | fake: deterministic local rules, no network |
+    # openai_compatible: POST {llm_base_url}/chat/completions with llm_api_key
+    llm_provider: Literal["disabled", "fake", "openai_compatible"] = "disabled"
     llm_api_key: SecretStr | None = None
     llm_model: str = ""
+    llm_base_url: str = ""
+    llm_timeout_seconds: float = Field(default=20, gt=0, le=120)
 
     # M10 - transport
     cors_origins: str = "http://localhost:5173"
@@ -93,7 +105,10 @@ class Settings(BaseSettings):
 
     @property
     def llm_enabled(self) -> bool:
-        return self.llm_provider != "disabled" and self.llm_api_key is not None
+        if self.llm_provider == "fake":
+            return True
+        has_key = self.llm_api_key is not None and bool(self.llm_api_key.get_secret_value())
+        return self.llm_provider == "openai_compatible" and has_key and bool(self.llm_base_url)
 
 
 @lru_cache

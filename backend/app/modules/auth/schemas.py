@@ -30,10 +30,12 @@ class TokenResponse(BaseModel):
 
 
 class TokenPair(BaseModel):
-    """Internal: returned by authenticate(); the router sets refresh_token as a cookie."""
+    """Internal: returned by authenticate()/refresh_session(). Never serialized as-is:
+    the router sends `access` as the body and the other two values as cookies."""
 
     access: TokenResponse
     refresh_token: str
+    csrf_token: str
 
 
 class UserOut(ORMModel):

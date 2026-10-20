@@ -41,3 +41,5 @@ class ChainVerification(BaseModel):
     checked_entries: int
     first_broken_id: int | None = None
     reason: str | None = None
+    # Hash of the newest verified entry: record it elsewhere to detect later truncation.
+    last_hash: str | None = None

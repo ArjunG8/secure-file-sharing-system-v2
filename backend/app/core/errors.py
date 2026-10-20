@@ -42,6 +42,7 @@ class AppError(Exception):
         code: str | None = None,
         module: str | None = None,
         details: Any = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         super().__init__(message)
         self.status_code = status_code
@@ -49,6 +50,8 @@ class AppError(Exception):
         self.message = message
         self.module = module
         self.details = details
+        # e.g. WWW-Authenticate on 401, Retry-After on 429
+        self.headers = headers
 
 
 class NotImplementedFeature(AppError):
@@ -68,25 +71,39 @@ def error_response(
     message: str,
     module: str | None = None,
     details: Any = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     body = {"error": {"code": code, "message": message, "module": module, "details": details}}
-    return JSONResponse(status_code=status_code, content=jsonable_encoder(body))
+    return JSONResponse(status_code=status_code, content=jsonable_encoder(body), headers=headers)
+
+
+def _safe_validation_errors(errors: list[dict]) -> list[dict]:
+    # Never echo submitted values back (they may be passwords or tokens).
+    return [{k: v for k, v in e.items() if k not in ("input", "ctx", "url")} for e in errors]
 
 
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:
-        return error_response(exc.status_code, exc.code, exc.message, exc.module, exc.details)
+        return error_response(
+            exc.status_code, exc.code, exc.message, exc.module, exc.details, exc.headers
+        )
 
     @app.exception_handler(StarletteHTTPException)
     async def _http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:
         code = STATUS_CODES.get(exc.status_code, "error")
-        return error_response(exc.status_code, code, str(exc.detail))
+        return error_response(
+            exc.status_code, code, str(exc.detail), headers=getattr(exc, "headers", None)
+        )
 
     @app.exception_handler(RequestValidationError)
     async def _validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
         return error_response(
-            422, "validation_error", "Request validation failed.", None, exc.errors()
+            422,
+            "validation_error",
+            "Request validation failed.",
+            None,
+            _safe_validation_errors(exc.errors()),
         )
 
     @app.exception_handler(Exception)
