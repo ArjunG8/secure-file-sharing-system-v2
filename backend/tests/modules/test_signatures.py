@@ -2,8 +2,8 @@
 from types import SimpleNamespace
 
 import pytest
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 from app.modules.keys.schemas import RSA_PSS
 from app.modules.signatures import service
