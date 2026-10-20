@@ -14,4 +14,6 @@ RUN mkdir -p /data/files /data/models && chown -R appuser:appuser /data
 USER appuser
 
 EXPOSE 8000
-CMD ["sh", "-c", "alembic upgrade head && uvicorn --factory app.main:create_app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]
+# X-Forwarded-* headers are trusted only from FORWARDED_ALLOW_IPS (the nginx proxy).
+ENV FORWARDED_ALLOW_IPS=127.0.0.1
+CMD ["sh", "-c", "alembic upgrade head && uvicorn --factory app.main:create_app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=\"$FORWARDED_ALLOW_IPS\""]

@@ -87,7 +87,15 @@ class Settings(BaseSettings):
 
     # M10 - transport
     cors_origins: str = "http://localhost:5173"
+    # Reject plain-HTTP requests. Always on when ENVIRONMENT=production (https_required).
+    # "HTTPS" means uvicorn saw https - directly, or via X-Forwarded-Proto from a proxy
+    # listed in uvicorn's --forwarded-allow-ips (FORWARDED_ALLOW_IPS). Never from a client.
     enforce_https: bool = False
+    hsts_max_age_seconds: int = Field(default=31536000, ge=0)
+
+    @property
+    def https_required(self) -> bool:
+        return self.enforce_https or self.environment == "production"
 
     @field_validator("master_key_encryption_key")
     @classmethod

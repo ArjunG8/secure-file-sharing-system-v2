@@ -252,18 +252,46 @@ scope and may be discussed as future work.
   JWT with `alg=none` / wrong secret / expired; SQL injection strings in login
   and search fields; oversized upload → 413.
 
-### M10 — HTTPS/TLS & transport security
-- nginx terminates TLS: `ssl_protocols TLSv1.2 TLSv1.3;` modern AEAD ciphers,
-  OCSP stapling off for self-signed dev certs.
-- Dev certificates generated locally by `scripts/gen-dev-certs.sh` into
-  `infra/nginx/certs/` (git-ignored). Never commit private keys.
-- Headers (nginx and FastAPI middleware): `Strict-Transport-Security:
-  max-age=31536000; includeSubDomains`, `Content-Security-Policy`,
-  `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
-  `Referrer-Policy: no-referrer`, `Permissions-Policy`.
-- HTTP :80 → 301 to HTTPS. In `ENVIRONMENT=production`, backend rejects
-  requests whose `X-Forwarded-Proto` ≠ `https`.
-- CORS: only `CORS_ORIGINS` from env; credentials allowed only for those.
+### M10 — Secure data transmission & protocol security
+- **Development vs production.** Development (`docker compose up` or a local uvicorn) is
+  plain HTTP on localhost: no HTTPS enforcement, no HSTS. Production-style is
+  `docker compose --profile tls up`: nginx terminates TLS, the backend requires HTTPS
+  (`ENFORCE_HTTPS=true`, and always on when `ENVIRONMENT=production`). **The TLS profile
+  has only been checked statically; it has not been run with Docker yet.**
+- **App-side (`app/modules/transport`, tested):**
+  - every response, including errors and rejections, carries `X-Content-Type-Options:
+    nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`,
+    `Permissions-Policy`, `Cross-Origin-Opener-Policy` / `-Resource-Policy: same-origin`,
+    and a strict API CSP (`default-src 'none'; frame-ancestors 'none'`). `/api/docs` is
+    exempt from the CSP because Swagger UI loads CDN assets;
+  - HSTS (`max-age=HSTS_MAX_AGE_SECONDS; includeSubDomains`) only on HTTPS responses;
+  - when HTTPS is required, plain-HTTP GET/HEAD get 308 to https and other methods get 400
+    (a redirect would make clients resend bodies or credentials in clear first).
+    `/api/v1/health` is exempt for internal probes;
+  - "HTTPS" means uvicorn's resolved scheme. The app never reads `X-Forwarded-Proto`
+    itself, and uvicorn honours it only from `FORWARDED_ALLOW_IPS` (the nginx container,
+    pinned to `172.28.0.10` in Compose; `127.0.0.1` by default in the image, replacing
+    the old `'*'`). A client sending `X-Forwarded-Proto: https` is still rejected
+    (tested);
+  - CORS is limited to `CORS_ORIGINS` (tested with an allowed and a foreign origin).
+    The SPA is same-origin behind nginx, so production needs no CORS origins at all.
+- **nginx (`infra/nginx/nginx.conf`):** `ssl_protocols TLSv1.2 TLSv1.3`, TLS 1.2 limited
+  to ECDHE + AES-GCM / ChaCha20-Poly1305 (Mozilla intermediate), session tickets off,
+  HTTP→HTTPS 301, HSTS, `server_tokens off`, `client_max_body_size 26m`, `limit_req` on
+  `/api/v1/auth/`. It overwrites `X-Forwarded-For` with `$remote_addr` (never appends
+  client values) and passes `X-TLS-Protocol` for `/transport/status`.
+- **Production frontend:** `infra/nginx/Dockerfile` builds the SPA (`npm run build`) and
+  serves the static files from nginx with an SPA CSP (`default-src 'self'; script-src
+  'self'; style-src 'self'; frame-ancestors 'none'` …). The Vite dev server is never
+  behind the TLS proxy.
+- Dev certificates come from `scripts/gen-dev-certs.sh` (self-signed RSA-3072, key
+  `chmod 600`) into `infra/nginx/certs/`, which is git- and docker-ignored. Browsers
+  will warn about the self-signed certificate; real deployments need a CA-issued one.
+- **Still required (manual):** run `docker compose --profile tls up --build`, then check
+  with `openssl s_client -connect localhost:443 -tls1_1` (must fail),
+  `-tls1_2`/`-tls1_3` (must succeed), `curl -I http://localhost` (301) and
+  `curl -kI https://localhost/api/v1/health` (HSTS present). Record the results in the
+  report.
 
 ## 3. Secrets management
 

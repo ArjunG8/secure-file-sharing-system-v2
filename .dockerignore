@@ -1,0 +1,12 @@
+# Build context for infra/nginx/Dockerfile is the repository root: never send secrets,
+# Git data or local dependency folders to the Docker daemon.
+.git
+.env
+.env.*
+!.env.example
+**/node_modules
+**/.venv
+**/__pycache__
+**/dist
+data
+infra/nginx/certs

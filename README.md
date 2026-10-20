@@ -107,7 +107,7 @@ Windows and macOS hosts). A change to `requirements.txt` needs
 `docker compose exec backend python -m app.cli promote-admin you@example.edu`
 (add `--yes` after checking the dry-run output).
 
-HTTPS through the nginx proxy (Module 10, not yet verified):
+HTTPS through the nginx proxy, serving the production frontend build (Module 10; configuration statically tested, **not yet run with Docker**):
 
 ```bash
 sh scripts/gen-dev-certs.sh
