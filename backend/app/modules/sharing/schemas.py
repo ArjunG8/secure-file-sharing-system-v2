@@ -29,3 +29,5 @@ class ShareOut(ORMModel):
     max_downloads: int | None
     download_count: int
     created_at: datetime
+    # Not revoked, not expired, downloads remaining (and the file still exists).
+    active: bool

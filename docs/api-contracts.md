@@ -150,7 +150,11 @@ Keys are created on first use, so `/keys/me` always returns one active key per p
 | POST | `/shares` | 🔒 owner | `ShareCreate` | 201 `ShareOut` |
 | GET | `/shares/outgoing` | 🔒 | pagination | 200 `Page[ShareOut]` |
 | GET | `/shares/incoming` | 🔒 | pagination | 200 `Page[ShareOut]` |
-| DELETE | `/shares/{grant_id}` | 🔒 owner | – | 204 (sets `revoked_at`) |
+| DELETE | `/shares/{grant_id}` | 🔒 owner | – | 204 (sets `revoked_at`); 404 if not yours; 422 for the owner's own grant |
+
+`POST /shares`: 404 if the caller doesn't own the file or the recipient has no active
+account, 422 for sharing with yourself or a past `expires_at`. Listings show only
+`read` grants; `active` is false once a grant is revoked, expired or used up.
 
 ```jsonc
 // ShareCreate
@@ -158,7 +162,8 @@ Keys are created on first use, so `/keys/me` always returns one active key per p
 // ShareOut
 { "id": "uuid", "file_id": "uuid", "file_name": "report.pdf", "grantee_id": "uuid",
   "grantee_email": "b@b.edu", "granted_by_id": "uuid", "permission": "read",
-  "expires_at": null, "revoked_at": null, "max_downloads": null, "download_count": 0, "created_at": "..." }
+  "expires_at": null, "revoked_at": null, "max_downloads": null, "download_count": 0, "created_at": "...",
+  "active": true }
 ```
 
 ## 8. M6 — Audit log (`/audit`)

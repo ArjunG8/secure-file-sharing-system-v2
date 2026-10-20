@@ -34,12 +34,7 @@ STUBBED["M4"] = [
 ]
 
 # ---------------------------------------------------------------- M5 (owner: M5)
-STUBBED["M5"] = [
-    ("post", "/api/v1/shares", {"json": {"file_id": FID, "recipient_email": "b@example.com"}}),
-    ("get", "/api/v1/shares/outgoing", {}),
-    ("get", "/api/v1/shares/incoming", {}),
-    ("delete", f"/api/v1/shares/{FID}", {}),
-]
+STUBBED["M5"] = []  # implemented: see tests/modules/test_sharing.py
 
 
 

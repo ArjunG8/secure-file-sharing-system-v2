@@ -153,6 +153,20 @@ scope and may be discussed as future work.
 - Return **404** (not 403) when a user lacks access to a file id, to avoid
   revealing existence. Log `share.access_denied`.
 - Increment `download_count` atomically (`UPDATE ... SET download_count = download_count + 1 WHERE ... AND download_count < max_downloads`).
+  Implemented with `RETURNING`; a download that loses the race is a denial. Verified on
+  PostgreSQL 18: 10 concurrent downloads with `max_downloads=3` → exactly 3 succeed.
+- `require_access` (`app/modules/sharing/service.py`) is the only enforcement point and
+  is called for every read of content, metadata or signatures (M2, M4, M9). Every
+  failure is recorded as `share.access_denied` (`details.reason` ∈ `no_such_file`,
+  `no_grant`, `revoked`, `expired`, `download_limit_reached`, `not_owner`) **before**
+  raising, so the event survives the rollback. All failures return the identical 404
+  `File not found.` (no existence oracle).
+- Owner grants are never limited or expirable, and can't be revoked (delete the file
+  instead). A re-share to the same user updates their single grant row (fresh wrapped
+  key, counters reset), matching the unique (`file_id`, `grantee_id`) constraint.
+- Sharing requires an active recipient account. An unknown email returns 404, which
+  lets a signed-in user check whether an email is registered; this is accepted for
+  this project and bounded by authentication.
 
 ### M6 — Tamper-evident audit log
 - Append-only from the application's perspective (no update/delete routes).
