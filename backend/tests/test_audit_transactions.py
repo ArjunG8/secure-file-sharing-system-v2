@@ -4,7 +4,6 @@ append_entries is replaced by a TEST DOUBLE (tests.helpers.fake_append_entries) 
 tests exercise the transaction plumbing, not M6's HMAC chain, which is still unimplemented.
 """
 
-import logging
 
 import pytest
 from fastapi import FastAPI

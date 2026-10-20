@@ -11,7 +11,6 @@ import uuid
 import pytest
 
 from app.core.modules import all_modules
-from tests.helpers import make_user
 
 FID = str(uuid.uuid4())
 LATER = {"since": "2026-01-01T00:00:00Z", "until": "2026-01-02T00:00:00Z"}
