@@ -42,11 +42,7 @@ STUBBED["M5"] = [
     ("delete", f"/api/v1/shares/{FID}", {}),
 ]
 
-# ---------------------------------------------------------------- M6 (owner: M6)
-STUBBED["M6"] = [
-    ("get", "/api/v1/audit/logs", {}),
-    ("get", "/api/v1/audit/verify", {}),
-]
+
 
 
 # ---------------------------------------------------------------- M8 (owner: M8)
@@ -76,11 +72,10 @@ STUBBED_ENDPOINTS = [
     for method, path, kwargs in endpoints
 ]
 
-
 @pytest.fixture
-def admin_client(client_as):
-    # Bypass M1 so each endpoint reaches its own module's code.
-    return client_as(make_user(role="admin"))
+def admin_client(client_as, create_user):
+    # Persist the admin so audit events can reference a valid user.
+    return client_as(create_user(role="admin"))
 
 
 @pytest.mark.parametrize(

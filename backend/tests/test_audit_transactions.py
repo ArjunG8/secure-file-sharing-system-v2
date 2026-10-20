@@ -152,11 +152,11 @@ def test_session_scope_outside_requests(monkeypatch, db):
     assert _audit_types(db) == [("script.ok", "success"), ("script.denied", "denied")]
 
 
-def test_stub_append_entries_is_honest(caplog):
-    """Until M6 lands, events are not persisted and every one is reported in the log."""
-    with caplog.at_level(logging.WARNING), TestClient(_app()) as c:
-        assert c.post("/success").status_code == 201
-    assert "was NOT recorded" in caplog.text
+def test_success_event_is_recorded(audit_client, db):
+    """A successful request persists its audit event."""
+    assert audit_client.post("/success").status_code == 201
+    assert _users(db, "ok@example.test") == 1
+    assert _audit_types(db) == [("probe.success", "success")]
 
 
 def test_concurrent_transactions_keep_one_chain_without_deadlock(monkeypatch, db):
