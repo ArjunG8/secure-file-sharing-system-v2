@@ -4,9 +4,8 @@ from fastapi import APIRouter, Depends
 
 from app.api.deps import get_current_user, require_admin
 from app.core.database import DbSession
-from app.core.errors import NotImplementedFeature
 from app.models import User
-from app.modules.verification import MODULE_INFO, service
+from app.modules.verification import service
 from app.modules.verification.schemas import VerificationReport
 from app.schemas.common import Page, PageParams, page_params
 
@@ -36,4 +35,6 @@ def list_runs(
     page: PageParams = Depends(page_params),
     admin: User = Depends(require_admin),
 ) -> Page[VerificationReport]:
-    raise NotImplementedFeature(MODULE_INFO, "Verification run listing")
+    rows, total = service.list_runs(db, page.limit, page.offset)
+    return Page[VerificationReport](items=[VerificationReport.model_validate(r) for r in rows],
+                                    total=total, limit=page.limit, offset=page.offset)

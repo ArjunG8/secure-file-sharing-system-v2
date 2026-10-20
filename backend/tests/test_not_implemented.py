@@ -53,11 +53,7 @@ STUBBED["M6"] = [
 STUBBED["M8"] = []  # implemented: see tests/modules/test_llm_analysis.py
 
 # ---------------------------------------------------------------- M9 (owner: M9)
-STUBBED["M9"] = [
-    ("post", f"/api/v1/verification/files/{FID}", {}),
-    ("post", "/api/v1/verification/audit-chain", {}),
-    ("get", "/api/v1/verification/runs", {}),
-]
+STUBBED["M9"] = []  # implemented: see tests/modules/test_verification.py
 
 # ---------------------------------------------------------------- M10 (owner: M10)
 STUBBED["M10"] = [
