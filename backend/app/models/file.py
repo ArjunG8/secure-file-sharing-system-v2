@@ -1,4 +1,3 @@
-
 """Owner: M2 (AES-256-GCM file encryption). Signature columns owned by M4."""
 
 import uuid

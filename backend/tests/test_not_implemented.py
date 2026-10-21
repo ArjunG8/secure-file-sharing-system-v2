@@ -28,7 +28,7 @@ STUBBED["M2"] = []  # implemented: see tests/modules/test_encryption.py
 STUBBED["M3"] = []  # implemented: see tests/modules/test_keys.py
 
 # ---------------------------------------------------------------- M4 (owner: M4)
-
+STUBBED["M4"] = []  # implemented: see tests/modules/test_signatures.py
 
 # ---------------------------------------------------------------- M5 (owner: M5)
 STUBBED["M5"] = []  # implemented: see tests/modules/test_sharing.py

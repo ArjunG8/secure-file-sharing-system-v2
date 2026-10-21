@@ -140,7 +140,8 @@ Keys are created on first use, so `/keys/me` always returns one active key per p
 { "file_id": "uuid", "algorithm": "RSA-PSS-SHA256", "signature_b64": "...",
   "signing_key_id": "uuid", "signer_id": "uuid", "manifest": { ... } }
 // SignatureVerifyResult
-{ "file_id": "uuid", "valid": true, "checked_at": "...", "reason": null }
+{ "file_id": "uuid", "valid": true, "signature_valid": true, "ciphertext_intact": true,
+  "checked_at": "...", "reason": null }
 ```
 
 ## 7. M5 — Sharing & access control (`/shares`)
