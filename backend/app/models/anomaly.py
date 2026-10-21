@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, ForeignKey, String
+from sqlalchemy import BigInteger, Double, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, utcnow
@@ -24,7 +24,7 @@ class AnomalyDetection(Base):
     window_end: Mapped[datetime]
     features: Mapped[dict[str, Any]]
     # IsolationForest.decision_function: lower = more anomalous.
-    score: Mapped[float]
+    score: Mapped[float] = mapped_column(Double)  # same type as migration 0001
     is_anomaly: Mapped[bool]
     model_version: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(default=utcnow)

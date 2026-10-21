@@ -129,17 +129,34 @@ scope and may be discussed as future work.
 - Audit events: `key.generate`, `key.rotate`.
 
 ### M4 — RSA-PSS digital signatures
-- Padding: `PSS(mgf=MGF1(SHA256), salt_length=PSS.DIGEST_LENGTH)`, hash SHA-256.
-  (Use `DIGEST_LENGTH` consistently for sign and verify.)
-- Signed message = canonical manifest bytes:
-  `json.dumps({"v":1,"file_id","owner_id","original_filename","size_bytes",
-  "content_type","plaintext_sha256","ciphertext_sha256","nonce_b64",
-  "encryption_algorithm"}, sort_keys=True, separators=(",",":")).encode()`.
-- Signing happens at upload with the owner's active signing key; the key id is
-  stored in `files.signing_key_id`. Verification uses that exact key (even if
-  since rotated).
-- Download must refuse (502 `integrity_failure`) when verification fails and
-  emit `file.integrity_failure` audit event.
+- **Signatures prove authorship, hashes only prove sameness.** A matching SHA-256 shows the
+  bytes weren't changed after hashing; it says nothing about who produced them. Only a
+  verified signature by the owner's key does that, and M4 never treats a hash match
+  as authorship.
+- Algorithms follow the signer's M3 key: RSA keys (the default) sign with **RSA-PSS**
+  (`PSS(MGF1(SHA256), salt_length=PSS.DIGEST_LENGTH)`, SHA-256, i.e. a 32-byte salt),
+  stored as `RSA-PSS-SHA256`. ECC keys sign with **Ed25519**, stored as `Ed25519`.
+  Rows written by the first M4 build carry `RSA-PSS-3072-SHA256` and are read as
+  `RSA-PSS-SHA256`.
+- Signed message = canonical manifest bytes (sorted keys, no whitespace, ASCII):
+  `json.dumps({"v":1,"file_id","owner_id","original_filename","content_type",
+  "size_bytes","plaintext_sha256","ciphertext_sha256","nonce_b64",
+  "encryption_algorithm"}, sort_keys=True, separators=(",",":"), ensure_ascii=True)`.
+  Changing any of these fields, including the owner, invalidates the signature.
+- Signing happens at upload with the owner's active signing key; `files.signing_key_id`
+  records the exact key. Verification uses that key even after rotation.
+- Verification (`explain_verification`) fails closed, in order: no signature → signing
+  key missing or not `purpose="signing"` → key not owned by the file's owner (blocks a
+  valid signature by someone else) → key algorithm ≠ stored signature algorithm (blocks
+  algorithm confusion) → cryptographic check.
+- `GET /signatures/files/{id}` and `POST /signatures/files/{id}/verify` need read access
+  through M5 (`require_access`): the same audited 404 for "not shared with you",
+  "deleted" and "does not exist". The verify endpoint reports `signature_valid`
+  (authorship) and `ciphertext_intact` (the stored blob's SHA-256 equals the signed
+  `ciphertext_sha256`) separately; `valid` requires both. Each run is audited
+  (`file.signature_verify`).
+- Download must refuse (502 `integrity_failure`) when verification fails and emit a
+  `file.integrity_failure` audit event (implemented in M2).
 
 ### M5 — Sharing & access control
 - Default deny. Access requires a `file_access_grants` row where
@@ -251,6 +268,9 @@ scope and may be discussed as future work.
   → 404; IDOR on another user's file id; edited/deleted audit row → chain break;
   JWT with `alg=none` / wrong secret / expired; SQL injection strings in login
   and search fields; oversized upload → 413.
+  These run as real end-to-end tests through the HTTP API
+  (`backend/tests/security/test_attacks.py`); each is skipped only while a module it
+  needs still reports `implemented=False`, and the skip reason names it.
 
 ### M10 — Secure data transmission & protocol security
 - **Development vs production.** Development (`docker compose up` or a local uvicorn) is
